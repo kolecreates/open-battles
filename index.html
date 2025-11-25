@@ -86,6 +86,9 @@
     #target-btn{position:absolute;bottom:clamp(75px,14vh,110px);right:20px;width:clamp(55px,12vw,70px);height:clamp(55px,12vw,70px);background:linear-gradient(135deg,#4a3a3a,#2a1a1a);border:3px solid #f66;border-radius:50%;display:none;align-items:center;justify-content:center;color:#fff;font-size:clamp(20px,4vw,28px);box-shadow:0 4px 8px rgba(0,0,0,0.5);touch-action:none}
     .mobile-device #target-btn{display:flex}
     #target-btn:active{transform:scale(0.9);border-color:#ff0}
+    #fullscreen-btn{position:absolute;top:10px;right:clamp(200px,20vw,250px);width:40px;height:40px;background:linear-gradient(135deg,#3a3a4a,#1a1a2a);border:2px solid #5a4a3a;border-radius:4px;display:none;align-items:center;justify-content:center;color:#fff;font-size:18px;box-shadow:0 3px 6px rgba(0,0,0,0.4);touch-action:manipulation;cursor:pointer}
+    .mobile-device #fullscreen-btn{display:flex}
+    #fullscreen-btn:active{transform:scale(0.9);border-color:#ffd700}
     /* Landscape mobile layout */
     @media screen and (max-height:500px) and (orientation:landscape){
       .mobile-device #joystick-zone{width:100px;height:100px;bottom:10px;left:10px}
@@ -134,6 +137,7 @@
         <span class="redteam-score">Red: <span id="redteam-score">0</span>/3</span>
       </div>
       <canvas id="minimap"></canvas>
+      <button id="fullscreen-btn" title="Toggle fullscreen">⛶</button>
       <div id="target-frame">
         <div id="target-name">Target</div>
         <div id="target-health-bar"><div id="target-health"></div></div>
@@ -576,6 +580,23 @@ function createUnit(scene,x,y,cls,team,isPlayer){
   // Effect indicators (stun, slow, root, etc)
   const effectIcons=scene.add.text(0,-52,'',{fontSize:'14px',backgroundColor:'rgba(0,0,0,0.6)',padding:{x:2,y:1}}).setOrigin(0.5);
   container.add(effectIcons);
+
+  // Player indicator - pulsing gold arrow
+  let playerIndicator=null;
+  if(isPlayer){
+    playerIndicator=scene.add.graphics();
+    playerIndicator.fillStyle(0xffd700);
+    playerIndicator.beginPath();
+    playerIndicator.moveTo(0,-70);
+    playerIndicator.lineTo(-8,-58);
+    playerIndicator.lineTo(8,-58);
+    playerIndicator.closePath();
+    playerIndicator.fillPath();
+    playerIndicator.lineStyle(2,0xffaa00);
+    playerIndicator.strokePath();
+    container.add(playerIndicator);
+    scene.tweens.add({targets:playerIndicator,y:-5,duration:600,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+  }
   
   scene.physics.add.existing(container);
   container.body.setCircle(20,-20,-28);
@@ -769,6 +790,9 @@ function setupAbilityUI(){
         e.preventDefault();
         const result=useAbility(i);
         flashAbilityButton(i,result);
+      }else{
+        // Long press released - hide tooltip
+        hideTooltip();
       }
     });
     
@@ -955,6 +979,18 @@ function setupMobileControls(scene){
     e.preventDefault();
     cycleTarget();
   },{passive:false});
+
+  // Fullscreen button
+  const fullscreenBtn=document.getElementById('fullscreen-btn');
+  fullscreenBtn.addEventListener('click',()=>{
+    if(!document.fullscreenElement){
+      document.documentElement.requestFullscreen().catch(()=>{});
+      fullscreenBtn.textContent='⛶';
+    }else{
+      document.exitFullscreen();
+      fullscreenBtn.textContent='⛶';
+    }
+  });
   
   // Tap to target on game canvas
   scene.input.on('pointerdown',(ptr)=>{
@@ -1001,9 +1037,9 @@ function useAbility(idx){
   if(player.resource<ab.cost)return'no-resource';
   
   const needsTarget=['fireball','mortalStrike','hamstring','polymorph','flashHeal','renew','pwShield','dispel','smite',
-    'sinisterStrike','eviscerate','kick','kidneyShot','arcaneShot','concussiveShot'].includes(ab.fn);
+    'sinisterStrike','eviscerate','kick','kidneyShot','arcaneShot','concussiveShot','blizzard'].includes(ab.fn);
   const needsEnemy=['fireball','mortalStrike','hamstring','polymorph','smite','sinisterStrike','eviscerate','kick',
-    'kidneyShot','arcaneShot','multiShot','concussiveShot'].includes(ab.fn);
+    'kidneyShot','arcaneShot','multiShot','concussiveShot','blizzard'].includes(ab.fn);
   
   if(needsTarget){
     if(!player.target||!player.target.alive)return'no-target';
