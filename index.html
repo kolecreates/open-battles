@@ -89,6 +89,11 @@
     #fullscreen-btn{position:absolute;top:10px;right:clamp(200px,20vw,250px);width:40px;height:40px;background:linear-gradient(135deg,#3a3a4a,#1a1a2a);border:2px solid #5a4a3a;border-radius:4px;display:none;align-items:center;justify-content:center;color:#fff;font-size:18px;box-shadow:0 3px 6px rgba(0,0,0,0.4);touch-action:manipulation;cursor:pointer}
     .mobile-device #fullscreen-btn{display:flex}
     #fullscreen-btn:active{transform:scale(0.9);border-color:#ffd700}
+    #flag-status{position:absolute;top:45px;left:50%;transform:translateX(-50%);display:flex;gap:20px;font-size:14px}
+    .flag-indicator{display:none;align-items:center;gap:6px;background:rgba(0,0,0,0.8);padding:6px 12px;border-radius:4px;border:2px solid}
+    .flag-indicator.active{display:flex}
+    .flag-indicator.blue{border-color:#6af;color:#6af}
+    .flag-indicator.red{border-color:#f66;color:#f66}
     /* Landscape mobile layout */
     @media screen and (max-height:500px) and (orientation:landscape){
       .mobile-device #joystick-zone{width:100px;height:100px;bottom:10px;left:10px}
@@ -135,6 +140,10 @@
       <div id="score">
         <span class="blueteam-score">Blue: <span id="blueteam-score">0</span>/3</span>
         <span class="redteam-score">Red: <span id="redteam-score">0</span>/3</span>
+      </div>
+      <div id="flag-status">
+        <div id="blue-has-flag" class="flag-indicator blue">🚩 Blue has flag</div>
+        <div id="red-has-flag" class="flag-indicator red">🚩 Red has flag</div>
       </div>
       <canvas id="minimap"></canvas>
       <button id="fullscreen-btn" title="Toggle fullscreen">⛶</button>
@@ -375,29 +384,26 @@ function create(){
   const cd=CLASS_DATA[playerClass];
   player=createUnit(scene,300,MAP_H/2,playerClass,'blueteam',true);
   
-  const allyClasses=['warrior','mage','priest','rogue','hunter','warrior','mage','priest','rogue'];
+  const allyClasses=['warrior','mage','priest','rogue'];
   const allySpawns=[
-    {x:350,y:MAP_H/2-120},{x:350,y:MAP_H/2+120},
-    {x:400,y:MAP_H/2},{x:250,y:MAP_H/2-200},
-    {x:250,y:MAP_H/2+200},{x:380,y:MAP_H/2-160},
-    {x:380,y:MAP_H/2+160},{x:200,y:700},{x:200,y:1300}
+    {x:350,y:MAP_H/2-100},{x:350,y:MAP_H/2+100},
+    {x:400,y:MAP_H/2},{x:250,y:MAP_H/2}
   ];
-  for(let i=0;i<9;i++){
+  for(let i=0;i<4;i++){
     const ally=createUnit(scene,allySpawns[i].x,allySpawns[i].y,allyClasses[i],'blueteam',false);
-    ally.role=['offense','offense','offense','defense','defense','support','support','midfield','midfield'][i];
+    ally.role=['offense','offense','support','defense'][i];
     allies.push(ally);
   }
-  
-  const enemyClasses=['warrior','warrior','mage','mage','priest','priest','rogue','rogue','hunter','hunter'];
+
+  const enemyClasses=['warrior','mage','priest','rogue','hunter'];
   const enemySpawns=[
-    {x:MAP_W-350,y:MAP_H/2-120},{x:MAP_W-350,y:MAP_H/2+120},
-    {x:MAP_W-400,y:MAP_H/2},{x:MAP_W-250,y:MAP_H/2-200},
-    {x:MAP_W-250,y:MAP_H/2+200},{x:MAP_W-380,y:MAP_H/2-160},
-    {x:MAP_W-380,y:MAP_H/2+160},{x:MAP_W-200,y:700},{x:MAP_W-200,y:1300},{x:MAP_W-420,y:MAP_H/2}
+    {x:MAP_W-350,y:MAP_H/2-100},{x:MAP_W-350,y:MAP_H/2+100},
+    {x:MAP_W-400,y:MAP_H/2},{x:MAP_W-250,y:MAP_H/2-80},
+    {x:MAP_W-250,y:MAP_H/2+80}
   ];
-  for(let i=0;i<10;i++){
+  for(let i=0;i<5;i++){
     const enemy=createUnit(scene,enemySpawns[i].x,enemySpawns[i].y,enemyClasses[i],'redteam',false);
-    enemy.role=['offense','offense','offense','defense','defense','support','support','midfield','midfield','offense'][i];
+    enemy.role=['offense','offense','support','defense','offense'][i];
     enemies.push(enemy);
   }
   
@@ -1592,6 +1598,7 @@ function update(time,delta){
   updateAbilityCooldowns();
   updateComboPoints();
   updateTargetIndicator();
+  updateFlagStatus();
   
   if(!player.alive){
     const remaining=Math.ceil((player.respawnTime-Date.now())/1000);
@@ -1759,7 +1766,6 @@ function getSpeed(u){
   let spd=u.baseSpeed;
   if(hasEffect(u,'slow'))spd*=0.4;
   if(hasEffect(u,'sprint'))spd*=1.6;
-  if(u.carryingFlag)spd*=(1-u.flagStacks*0.07);
   if(hasEffect(u,'root'))spd=0;
   return spd;
 }
@@ -1773,14 +1779,14 @@ function checkFlags(u){
   
   // FIRST: Check if unit can return their own dropped flag (priority over enemy pickup)
   if(!allyFlag.carried&&Phaser.Math.Distance.Between(allyFlag.x,allyFlag.y,allyFlag.homeX,allyFlag.homeY)>70){
-    if(Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,allyFlag.x,allyFlag.y)<45){
+    if(Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,allyFlag.x,allyFlag.y)<60){
       allyFlag.sprite.setPosition(allyFlag.homeX,allyFlag.homeY);
       allyFlag.x=allyFlag.homeX;allyFlag.y=allyFlag.homeY;
     }
   }
   
   // SECOND: Check if unit can pick up enemy flag (only if not already carrying)
-  if(!u.carryingFlag&&!enemyFlag.carried&&Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,enemyFlag.x,enemyFlag.y)<45){
+  if(!u.carryingFlag&&!enemyFlag.carried&&Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,enemyFlag.x,enemyFlag.y)<60){
     enemyFlag.carried=u;
     u.carryingFlag=enemyFlag.team;
     u.flagPickTime=Date.now();
@@ -1796,7 +1802,8 @@ function checkFlags(u){
   
   // Check for flag capture (must have own flag at home)
   const afHome=Phaser.Math.Distance.Between(allyFlag.x,allyFlag.y,allyFlag.homeX,allyFlag.homeY)<70;
-  if(u.carryingFlag&&afHome&&Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,homeBase.x,homeBase.y)<90){
+  const distToAllyFlag=Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,allyFlag.homeX,allyFlag.homeY);
+  if(u.carryingFlag&&afHome&&distToAllyFlag<120){
     if(u.team==='blueteam')allyScore++;else redteamScore++;
     document.getElementById('blueteam-score').textContent=allyScore;
     document.getElementById('redteam-score').textContent=redteamScore;
@@ -1837,7 +1844,9 @@ function runAI(u,dt,scene){
   const friendlies=u.team==='blueteam'?[player,...allies]:enemies;
   const hostiles=u.team==='blueteam'?enemies:[player,...allies];
   const enemyFlag=u.team==='blueteam'?flags.redteam:flags.blueteam;
+  const allyFlag=u.team==='blueteam'?flags.blueteam:flags.redteam;
   const homeBase=u.team==='blueteam'?{x:350,y:MAP_H/2}:{x:MAP_W-350,y:MAP_H/2};
+  const allyFlagDropped=!allyFlag.carried&&Phaser.Math.Distance.Between(allyFlag.x,allyFlag.y,allyFlag.homeX,allyFlag.homeY)>70;
   
   // Targeting - only engage enemies within reasonable range (600 yards max to prevent off-screen attacks)
   const MAX_AGGRO_RANGE=600;
@@ -1883,17 +1892,41 @@ function runAI(u,dt,scene){
   let goalX,goalY;
   
   if(u.carryingFlag){
-    goalX=homeBase.x;goalY=homeBase.y;
-  }else if(u.role==='offense'&&!enemyFlag.carried){
-    goalX=enemyFlag.x;goalY=enemyFlag.y;
-  }else if(u.role==='defense'){
-    const distToHome=Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,homeBase.x,homeBase.y);
-    if(distToHome>550){
-      goalX=homeBase.x;goalY=homeBase.y;
-    }else if(bestTarget&&Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,bestTarget.sprite.x,bestTarget.sprite.y)<450){
-      goalX=bestTarget.sprite.x;goalY=bestTarget.sprite.y;
+    goalX=allyFlag.homeX;goalY=allyFlag.homeY;
+  }else if(u.role==='offense'){
+    // Priority 1: Chase enemy who stole our flag
+    if(allyFlag.carried&&allyFlag.carried.team!==u.team){
+      goalX=allyFlag.carried.sprite.x;goalY=allyFlag.carried.sprite.y;
+    }
+    // Priority 2: Go get enemy flag if available
+    else if(!enemyFlag.carried){
+      goalX=enemyFlag.x;goalY=enemyFlag.y;
+    }
+    // Priority 3: Escort ally flag carrier
+    else if(enemyFlag.carried&&enemyFlag.carried.team===u.team){
+      goalX=enemyFlag.carried.sprite.x;goalY=enemyFlag.carried.sprite.y;
+    }
+    // Default: Go to enemy flag spawn
+    else{
+      goalX=enemyFlag.homeX;goalY=enemyFlag.homeY;
+    }
+  }else if(u.role==='defense'||u.role==='support'){
+    // Priority 1: Chase enemy who stole our flag
+    if(allyFlag.carried&&allyFlag.carried.team!==u.team){
+      goalX=allyFlag.carried.sprite.x;goalY=allyFlag.carried.sprite.y;
+    }
+    // Priority 2: Return dropped ally flag
+    else if(allyFlagDropped){
+      goalX=allyFlag.x;goalY=allyFlag.y;
     }else{
-      goalX=u.sprite.x;goalY=u.sprite.y;
+      const distToHome=Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,allyFlag.homeX,allyFlag.homeY);
+      if(distToHome>550){
+        goalX=allyFlag.homeX;goalY=allyFlag.homeY;
+      }else if(bestTarget&&Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,bestTarget.sprite.x,bestTarget.sprite.y)<450){
+        goalX=bestTarget.sprite.x;goalY=bestTarget.sprite.y;
+      }else{
+        goalX=u.sprite.x;goalY=u.sprite.y;
+      }
     }
   }else if(u.role==='midfield'){
     const midX=MAP_W/2,midY=MAP_H/2;
@@ -1977,7 +2010,7 @@ function updateComboPoints(){
 
 function updateTargetIndicator(){
   if(!targetIndicator)return;
-  
+
   if(selectedTarget&&selectedTarget.alive&&!selectedTarget.stealthed){
     targetIndicator.setVisible(true);
     targetIndicator.setPosition(selectedTarget.sprite.x,selectedTarget.sprite.y-8);
@@ -1991,6 +2024,15 @@ function updateTargetIndicator(){
       player.target=null;
     }
   }
+}
+
+function updateFlagStatus(){
+  const blueHasFlag=document.getElementById('blue-has-flag');
+  const redHasFlag=document.getElementById('red-has-flag');
+  // Blue team has red flag
+  blueHasFlag.classList.toggle('active',flags.redteam.carried&&flags.redteam.carried.team==='blueteam');
+  // Red team has blue flag
+  redHasFlag.classList.toggle('active',flags.blueteam.carried&&flags.blueteam.carried.team==='redteam');
 }
 
 function updateMinimap(){
