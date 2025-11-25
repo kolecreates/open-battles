@@ -33,6 +33,7 @@
     .ability:hover,.ability:active{border-color:#aaa;transform:translateY(-2px);box-shadow:0 5px 10px rgba(0,0,0,0.6)}
     .ability.pressed{transform:scale(0.92) translateY(2px);box-shadow:0 2px 4px rgba(0,0,0,0.6);border-color:#ff0}
     .ability.on-cd{opacity:0.5;filter:grayscale(0.7)}
+    .ability.unusable{opacity:0.6;filter:grayscale(0.5)}
     .ability.no-resource{animation:shake 0.3s;border-color:#f44}
     @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
     .ability.out-of-range{border-color:#f80;animation:pulse 0.5s}
@@ -71,7 +72,7 @@
     #gate-timer{position:absolute;top:35%;left:50%;transform:translate(-50%,-50%);color:#ffd700;font-size:clamp(48px,10vw,80px);display:none;background:rgba(0,0,0,0.85);padding:30px 70px;border-radius:12px;border:4px solid #ffd700;box-shadow:0 8px 24px rgba(0,0,0,0.8);text-shadow:3px 3px 6px #000;font-weight:bold;letter-spacing:4px;animation:countdown-pulse 1s infinite}
     .combo-point{width:16px;height:16px;background:#222;border:2px solid #555;border-radius:50%;box-shadow:inset 0 2px 4px rgba(0,0,0,0.5)}
     .combo-point.active{background:#f33;border-color:#f66;box-shadow:0 0 12px #f33,inset 0 0 8px #f66}
-    #feedback-text{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);color:#ff0;font-size:clamp(16px,3.5vw,24px);font-weight:bold;text-shadow:2px 2px 4px #000,0 0 10px #ff0;pointer-events:none;display:none;background:rgba(0,0,0,0.7);padding:12px 24px;border-radius:6px;border:2px solid #ff0}
+    #feedback-text{position:absolute;top:70%;left:50%;transform:translate(-50%,-50%);color:#ff0;font-size:clamp(16px,3.5vw,24px);font-weight:bold;text-shadow:2px 2px 4px #000,0 0 10px #ff0;pointer-events:none;display:none;background:rgba(0,0,0,0.7);padding:12px 24px;border-radius:6px;border:2px solid #ff0}
     /* Mobile Controls */
     #joystick-zone{position:absolute;bottom:20px;left:20px;width:clamp(120px,25vw,150px);height:clamp(120px,25vw,150px);display:none;touch-action:none}
     #joystick-base{position:absolute;width:100%;height:100%;background:rgba(255,255,255,0.15);border:3px solid rgba(255,255,255,0.3);border-radius:50%;box-shadow:inset 0 0 20px rgba(0,0,0,0.3)}
@@ -110,7 +111,7 @@
       .mobile-device #cast-bar-container{bottom:70px;width:180px;padding:6px;right:50%;left:auto;transform:translateX(50%)}
       .mobile-device #cast-bar{height:14px}
       .mobile-device #combo-points{bottom:65px;left:130px}
-      .mobile-device #feedback-text{top:35%;font-size:14px;padding:8px 16px}
+      .mobile-device #feedback-text{top:65%;font-size:14px;padding:8px 16px}
       .mobile-device #respawn-timer{font-size:20px;padding:15px 30px}
       .mobile-device #gate-timer{font-size:40px;padding:15px 35px;top:30%}
     }
@@ -267,8 +268,8 @@ const CLASS_DATA={
       {name:'Mortal Strike',key:'2',cost:30,cd:4000,range:55,cast:0,fn:'mortalStrike',icon:'⚔️'},
       {name:'Thunder Clap',key:'3',cost:20,cd:5000,range:0,cast:0,fn:'thunderClap',icon:'⚡'},
       {name:'Shield Wall',key:'4',cost:0,cd:25000,range:0,cast:0,fn:'shieldWall',icon:'🛡️'},
-      {name:'Hamstring',key:'5',cost:10,cd:0,range:55,cast:0,fn:'hamstring',icon:'🦵'},
-      {name:'Intercept',key:'6',cost:20,cd:15000,range:400,cast:0,fn:'intercept',icon:'💨'}
+      {name:'Hamstring',key:'R',cost:10,cd:0,range:55,cast:0,fn:'hamstring',icon:'🦵'},
+      {name:'Intercept',key:'F',cost:20,cd:15000,range:400,cast:0,fn:'intercept',icon:'💨'}
     ]},
   mage:{hp:1200,resource:'mana',maxRes:1500,range:380,atkDmg:55,atkSpeed:2000,armor:0,
     abilities:[
@@ -276,8 +277,8 @@ const CLASS_DATA={
       {name:'Frost Nova',key:'2',cost:100,cd:16000,range:0,cast:0,fn:'frostNova',icon:'❄️'},
       {name:'Blink',key:'3',cost:0,cd:12000,range:0,cast:0,fn:'blink',icon:'✨'},
       {name:'Polymorph',key:'4',cost:150,cd:0,range:250,cast:1200,fn:'polymorph',icon:'🐑'},
-      {name:'Blizzard',key:'5',cost:250,cd:6000,range:380,cast:0,fn:'blizzard',icon:'🌨️'},
-      {name:'Ice Block',key:'6',cost:0,cd:45000,range:0,cast:0,fn:'iceBlock',icon:'🧊'}
+      {name:'Blizzard',key:'R',cost:250,cd:6000,range:380,cast:0,fn:'blizzard',icon:'🌨️'},
+      {name:'Ice Block',key:'F',cost:0,cd:45000,range:0,cast:0,fn:'iceBlock',icon:'🧊'}
     ]},
   priest:{hp:1100,resource:'mana',maxRes:1800,range:360,atkDmg:45,atkSpeed:2200,armor:0,
     abilities:[
@@ -285,8 +286,8 @@ const CLASS_DATA={
       {name:'Renew',key:'2',cost:120,cd:0,range:360,cast:0,fn:'renew',icon:'💫'},
       {name:'PW: Shield',key:'3',cost:200,cd:3000,range:360,cast:0,fn:'pwShield',icon:'🛡️'},
       {name:'Dispel',key:'4',cost:100,cd:0,range:360,cast:0,fn:'dispel',icon:'🧹'},
-      {name:'Smite',key:'5',cost:100,cd:0,range:360,cast:1200,fn:'smite',icon:'☀️'},
-      {name:'Psychic Scream',key:'6',cost:150,cd:20000,range:0,cast:0,fn:'psychicScream',icon:'😱'}
+      {name:'Smite',key:'R',cost:100,cd:0,range:360,cast:1200,fn:'smite',icon:'☀️'},
+      {name:'Psychic Scream',key:'F',cost:150,cd:20000,range:0,cast:0,fn:'psychicScream',icon:'😱'}
     ]},
   rogue:{hp:1600,resource:'energy',maxRes:120,range:55,atkDmg:90,atkSpeed:1200,armor:0,
     abilities:[
@@ -294,8 +295,8 @@ const CLASS_DATA={
       {name:'Eviscerate',key:'2',cost:35,cd:0,range:55,cast:0,fn:'eviscerate',icon:'💀'},
       {name:'Kick',key:'3',cost:25,cd:8000,range:55,cast:0,fn:'kick',icon:'🦶'},
       {name:'Kidney Shot',key:'4',cost:25,cd:15000,range:55,cast:0,fn:'kidneyShot',icon:'😵'},
-      {name:'Vanish',key:'5',cost:0,cd:90000,range:0,cast:0,fn:'vanish',icon:'👻'},
-      {name:'Sprint',key:'6',cost:0,cd:45000,range:0,cast:0,fn:'sprint',icon:'💨'}
+      {name:'Vanish',key:'R',cost:0,cd:90000,range:0,cast:0,fn:'vanish',icon:'👻'},
+      {name:'Sprint',key:'F',cost:0,cd:45000,range:0,cast:0,fn:'sprint',icon:'💨'}
     ]},
   hunter:{hp:1400,resource:'focus',maxRes:140,range:370,atkDmg:70,atkSpeed:1500,armor:0,
     abilities:[
@@ -303,8 +304,8 @@ const CLASS_DATA={
       {name:'Multi-Shot',key:'2',cost:40,cd:0,range:350,cast:0,fn:'multiShot',icon:'🎯'},
       {name:'Concussive',key:'3',cost:20,cd:8000,range:370,cast:0,fn:'concussiveShot',icon:'💫'},
       {name:'Frost Trap',key:'4',cost:0,cd:20000,range:0,cast:0,fn:'frostTrap',icon:'🪤'},
-      {name:'Disengage',key:'5',cost:0,cd:16000,range:0,cast:0,fn:'disengage',icon:'⬅️'},
-      {name:'Rapid Fire',key:'6',cost:0,cd:60000,range:0,cast:0,fn:'rapidFire',icon:'⚡'}
+      {name:'Disengage',key:'R',cost:0,cd:16000,range:0,cast:0,fn:'disengage',icon:'⬅️'},
+      {name:'Rapid Fire',key:'F',cost:0,cd:60000,range:0,cast:0,fn:'rapidFire',icon:'⚡'}
     ]}
 };
 
@@ -630,17 +631,19 @@ function createUnit(scene,x,y,cls,team,isPlayer){
 
 function handleKeyDown(e){
   if(!player.alive||player.invulnerable)return;
-  const key=e.key;
-  const idx='123456'.indexOf(key);
+  const key=e.key.toLowerCase();
+  let idx='1234'.indexOf(key);
+  if(key==='r')idx=4;
+  if(key==='f')idx=5;
   if(idx>=0){
     const result=useAbility(idx);
     flashAbilityButton(idx,result);
   }
-  if(key==='Tab'){
+  if(e.key==='Tab'){
     e.preventDefault();
     cycleTarget();
   }
-  if(key==='Escape'){
+  if(e.key==='Escape'){
     selectedTarget=null;
     player.target=null;
     document.getElementById('target-frame').style.display='none';
@@ -2028,18 +2031,45 @@ function updatePlayerUI(){
 function updateAbilityCooldowns(){
   const abilities=CLASS_DATA[playerClass].abilities;
   const btns=document.querySelectorAll('.ability');
+  const needsTarget=['fireball','mortalStrike','hamstring','polymorph','flashHeal','renew','pwShield','dispel','smite',
+    'sinisterStrike','eviscerate','kick','kidneyShot','arcaneShot','concussiveShot','blizzard','chargeAbility','intercept'];
+
   abilities.forEach((ab,i)=>{
+    const btn=btns[i];
     const cd=player.cooldowns[ab.name];
+
+    // Check cooldown
     if(cd&&Date.now()<cd){
-      btns[i].classList.add('on-cd');
+      btn.classList.add('on-cd');
+      btn.classList.remove('unusable');
       const remaining=Math.ceil((cd-Date.now())/1000);
-      let overlay=btns[i].querySelector('.cd-overlay');
-      if(!overlay){overlay=document.createElement('div');overlay.className='cd-overlay';btns[i].appendChild(overlay);}
+      let overlay=btn.querySelector('.cd-overlay');
+      if(!overlay){overlay=document.createElement('div');overlay.className='cd-overlay';btn.appendChild(overlay);}
       overlay.textContent=remaining;
     }else{
-      btns[i].classList.remove('on-cd');
-      const overlay=btns[i].querySelector('.cd-overlay');
+      btn.classList.remove('on-cd');
+      const overlay=btn.querySelector('.cd-overlay');
       if(overlay)overlay.remove();
+
+      // Check if unusable (not enough resources or out of range)
+      let unusable=false;
+
+      // Not enough resources
+      if(player.resource<ab.cost)unusable=true;
+
+      // Needs target but no valid target or out of range
+      if(!unusable&&needsTarget.includes(ab.fn)){
+        if(!player.target||!player.target.alive){
+          unusable=true;
+        }else{
+          const d=Phaser.Math.Distance.Between(player.sprite.x,player.sprite.y,player.target.sprite.x,player.target.sprite.y);
+          if(d>ab.range)unusable=true;
+          // Charge/intercept have minimum range
+          if(['chargeAbility','intercept'].includes(ab.fn)&&d<80)unusable=true;
+        }
+      }
+
+      btn.classList.toggle('unusable',unusable);
     }
   });
 }
