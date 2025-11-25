@@ -1106,7 +1106,7 @@ const ABILITIES={
     createDashLine(scene,u.sprite.x,u.sprite.y,t.sprite.x,t.sprite.y);
     u.sprite.x+=Math.cos(ang)*(d-45);
     u.sprite.y+=Math.sin(ang)*(d-45);
-    dealDamage(u,t,u.atkDmg*2);
+    dealDamage(u,t,u.atkDmg*2,scene);
     applyEffect(t,'stun',2000);
     if(u.resourceType==='rage')u.resource=Math.min(u.maxResource,u.resource+30);
     createImpact(scene,t.sprite.x,t.sprite.y,0xffaa00);
@@ -1114,7 +1114,7 @@ const ABILITIES={
   },
   mortalStrike(u,scene){
     if(!u.target)return;
-    dealDamage(u,u.target,u.atkDmg*3);
+    dealDamage(u,u.target,u.atkDmg*3,scene);
     applyEffect(u.target,'mortalWound',10000);
     if(u.isPlayer){
       createWarriorSlash(scene,u.target.sprite.x,u.target.sprite.y);
@@ -1124,7 +1124,7 @@ const ABILITIES={
   thunderClap(u,scene){
     const targets=getUnitsInRange(u,140,u.team==='blueteam'?enemies:allies);
     createAOE(scene,u.sprite.x,u.sprite.y,140,0xffff00,400);
-    targets.forEach(t=>{dealDamage(u,t,u.atkDmg*1.5);applyEffect(t,'slow',4000);});
+    targets.forEach(t=>{dealDamage(u,t,u.atkDmg*1.5,scene);applyEffect(t,'slow',4000);});
     if(u.resourceType==='rage')u.resource=Math.min(u.maxResource,u.resource+8*targets.length);
   },
   shieldWall(u,scene){
@@ -1133,7 +1133,7 @@ const ABILITIES={
   },
   hamstring(u,scene){
     if(!u.target)return;
-    dealDamage(u,u.target,u.atkDmg);
+    dealDamage(u,u.target,u.atkDmg,scene);
     applyEffect(u.target,'slow',6000);
     if(u.isPlayer)createSlash(scene,u.target.sprite.x,u.target.sprite.y);
   },
@@ -1144,7 +1144,7 @@ const ABILITIES={
     createDashLine(scene,u.sprite.x,u.sprite.y,u.target.sprite.x,u.target.sprite.y);
     u.sprite.x+=Math.cos(ang)*(d-45);
     u.sprite.y+=Math.sin(ang)*(d-45);
-    dealDamage(u,u.target,u.atkDmg*1.5);
+    dealDamage(u,u.target,u.atkDmg*1.5,scene);
     applyEffect(u.target,'stun',4000);
     if(u.resourceType==='rage')u.resource=Math.min(u.maxResource,u.resource+20);
     if(u.isPlayer)createWarriorSlash(scene,u.target.sprite.x,u.target.sprite.y);
@@ -1152,18 +1152,18 @@ const ABILITIES={
   fireball(u,scene){
     if(!u.target)return;
     createProjectile(scene,u,u.target,'fireball',0xff4400,450,(target)=>{
-      dealDamage(u,target,u.atkDmg*3.5);
+      dealDamage(u,target,u.atkDmg*3.5,scene);
       createImpact(scene,target.sprite.x,target.sprite.y,0xff3300);
       createAOE(scene,target.sprite.x,target.sprite.y,60,0xff6600,300);
       getUnitsNearPoint(target.sprite.x,target.sprite.y,60,u.team==='blueteam'?enemies:allies).forEach(t=>{
-        if(t!==target)dealDamage(u,t,u.atkDmg*1.2);
+        if(t!==target)dealDamage(u,t,u.atkDmg*1.2,scene);
       });
     });
   },
   frostNova(u,scene){
     const targets=getUnitsInRange(u,180,u.team==='blueteam'?enemies:allies);
     createAOE(scene,u.sprite.x,u.sprite.y,180,0x66ccff,500);
-    targets.forEach(t=>{dealDamage(u,t,u.atkDmg);applyEffect(t,'root',6000);});
+    targets.forEach(t=>{dealDamage(u,t,u.atkDmg,scene);applyEffect(t,'root',6000);});
   },
   blink(u,scene){
     let ang;
@@ -1186,7 +1186,11 @@ const ABILITIES={
   polymorph(u,scene){
     if(!u.target)return;
     applyEffect(u.target,'polymorph',3000);
-    u.target.hp=Math.min(u.target.maxHp,u.target.hp+u.target.maxHp*0.2);
+    const t=u.target;
+    const healAmt=t.maxHp*0.2;
+    const healed=Math.min(healAmt,t.maxHp-t.hp);
+    t.hp=Math.min(t.maxHp,t.hp+healAmt);
+    if(healed>0)createCombatText(scene,t.sprite.x,t.sprite.y,healed,'heal');
   },
   blizzard(u,scene){
     if(!u.target)return;
@@ -1194,7 +1198,7 @@ const ABILITIES={
     createAOE(scene,tx,ty,200,0xaaccff,4000);
     const tick=()=>{
       const targets=getUnitsNearPoint(tx,ty,200,u.team==='blueteam'?enemies:allies);
-      targets.forEach(t=>{dealDamage(u,t,u.atkDmg*0.8);applyEffect(t,'slow',1500);});
+      targets.forEach(t=>{dealDamage(u,t,u.atkDmg*0.8,scene);applyEffect(t,'slow',1500);});
     };
     tick();
     scene.time.addEvent({delay:1000,callback:tick,repeat:3});
@@ -1202,15 +1206,20 @@ const ABILITIES={
   iceBlock(u,scene){
     applyEffect(u,'iceBlock',5000);
     u.invulnerable=true;
-    u.hp=Math.min(u.maxHp,u.hp+u.maxHp*0.3);
+    const healAmt=u.maxHp*0.3;
+    const healed=Math.min(healAmt,u.maxHp-u.hp);
+    u.hp=Math.min(u.maxHp,u.hp+healAmt);
     createShield(scene,u);
+    if(healed>0)createCombatText(scene,u.sprite.x,u.sprite.y,healed,'heal');
     setTimeout(()=>{u.invulnerable=false;},5000);
   },
   flashHeal(u,scene){
     let t=u.target&&u.target.team===u.team?u.target:u;
     const amt=hasEffect(t,'mortalWound')?300:600;
+    const healed=Math.min(amt,t.maxHp-t.hp);
     t.hp=Math.min(t.maxHp,t.hp+amt);
     createHeal(scene,t.sprite.x,t.sprite.y);
+    if(healed>0)createCombatText(scene,t.sprite.x,t.sprite.y,healed,'heal');
   },
   renew(u){
     let t=u.target&&u.target.team===u.team?u.target:u;
@@ -1233,7 +1242,7 @@ const ABILITIES={
   smite(u,scene){
     if(!u.target||u.target.team===u.team)return;
     createProjectile(scene,u,u.target,'smite',0xffffaa,500,(target)=>{
-      dealDamage(u,target,u.atkDmg*2.8);
+      dealDamage(u,target,u.atkDmg*2.8,scene);
     });
   },
   psychicScream(u,scene){
@@ -1243,13 +1252,13 @@ const ABILITIES={
   },
   sinisterStrike(u,scene){
     if(!u.target)return;
-    dealDamage(u,u.target,u.atkDmg*1.8);
+    dealDamage(u,u.target,u.atkDmg*1.8,scene);
     u.comboPoints=Math.min(5,u.comboPoints+1);
     createSlash(scene,u.target.sprite.x,u.target.sprite.y);
   },
   eviscerate(u,scene){
     if(!u.target||u.comboPoints<1)return;
-    dealDamage(u,u.target,u.atkDmg*(2+u.comboPoints*1.2));
+    dealDamage(u,u.target,u.atkDmg*(2+u.comboPoints*1.2),scene);
     createSlash(scene,u.target.sprite.x,u.target.sprite.y);
     createSlash(scene,u.target.sprite.x+15,u.target.sprite.y-15);
     u.comboPoints=0;
@@ -1277,21 +1286,21 @@ const ABILITIES={
   arcaneShot(u,scene){
     if(!u.target)return;
     createProjectile(scene,u,u.target,'arrow',0xaa88ff,600,(target)=>{
-      dealDamage(u,target,u.atkDmg*2.2);
+      dealDamage(u,target,u.atkDmg*2.2,scene);
     });
   },
   multiShot(u,scene){
     const targets=getUnitsInRange(u,400,u.team==='blueteam'?enemies:allies).slice(0,4);
     targets.forEach(t=>{
       createProjectile(scene,u,t,'arrow',0xaaff88,550,()=>{
-        dealDamage(u,t,u.atkDmg*1.5);
+        dealDamage(u,t,u.atkDmg*1.5,scene);
       });
     });
   },
   concussiveShot(u,scene){
     if(!u.target)return;
     createProjectile(scene,u,u.target,'arrow',0xaaccff,550,(target)=>{
-      dealDamage(u,target,u.atkDmg);
+      dealDamage(u,target,u.atkDmg,scene);
       applyEffect(target,'slow',4000);
     });
   },
@@ -1406,6 +1415,29 @@ function createShield(scene,unit){
   scene.tweens.add({targets:shield,scale:1.5,alpha:0,duration:600,onComplete:()=>shield.destroy()});
 }
 
+function createCombatText(scene,x,y,amount,type='damage'){
+  const isHeal=type==='heal';
+  const color=isHeal?'#44ff44':'#ffcc44';
+  const prefix=isHeal?'+':'-';
+  const displayAmt=Math.round(amount);
+  const offsetX=(Math.random()-0.5)*30;
+  const text=scene.add.text(x+offsetX,y-20,`${prefix}${displayAmt}`,{
+    fontSize:'24px',
+    color:color,
+    fontStyle:'bold',
+    stroke:'#000000',
+    strokeThickness:3
+  }).setOrigin(0.5).setDepth(1000);
+  scene.tweens.add({
+    targets:text,
+    y:y-70,
+    alpha:0,
+    duration:1000,
+    ease:'Cubic.easeOut',
+    onComplete:()=>text.destroy()
+  });
+}
+
 function applyEffect(u,type,dur){
   u.effects=u.effects.filter(e=>e.type!==type);
   u.effects.push({type,end:Date.now()+dur,lastTick:Date.now()});
@@ -1426,32 +1458,34 @@ function getUnitsNearPoint(x,y,range,pool){
   return pool.filter(t=>t.alive&&!t.stealthed&&Phaser.Math.Distance.Between(x,y,t.sprite.x,t.sprite.y)<=range);
 }
 
-function dealDamage(attacker,target,dmg){
+function dealDamage(attacker,target,dmg,scene){
   if(!target.alive||target.invulnerable)return;
   breakStealth(attacker);
   applyEffect(attacker,'combat',6000);
   applyEffect(target,'combat',6000);
-  
+
   // Apply armor reduction
   if(target.armor){
     dmg*=(1-target.armor);
   }
-  
+
   if(hasEffect(target,'shieldWall'))dmg*=0.2;
   if(hasEffect(target,'iceBlock'))return;
-  
+
   // Break polymorph on damage
   if(hasEffect(target,'polymorph')){
     target.effects=target.effects.filter(e=>e.type!=='polymorph');
     target.icon.setText({warrior:'⚔',mage:'❄',priest:'✚',rogue:'🗡',hunter:'🏹'}[target.class]);
   }
-  
+
+  const totalDmg=dmg;
   if(target.shielded>0){
-    if(target.shielded>=dmg){target.shielded-=dmg;return;}
-    dmg-=target.shielded;target.shielded=0;
+    if(target.shielded>=dmg){target.shielded-=dmg;dmg=0;}
+    else{dmg-=target.shielded;target.shielded=0;}
   }
-  
-  target.hp-=dmg;
+
+  if(dmg>0)target.hp-=dmg;
+  if(scene&&totalDmg>0)createCombatText(scene,target.sprite.x,target.sprite.y,totalDmg,'damage');
   if(target.hp<=0)killUnit(target);
 }
 
@@ -1586,7 +1620,11 @@ function update(time,delta){
         if(u.alive&&Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,b.x,b.y)<35){
           if(b.type==='speed')applyEffect(u,'sprint',30000);
           if(b.type==='berserk'){applyEffect(u,'berserk',30000);u.atkDmg*=1.4;}
-          if(b.type==='restore'){u.hp=u.maxHp;u.resource=u.maxResource;}
+          if(b.type==='restore'){
+            const healed=u.maxHp-u.hp;
+            u.hp=u.maxHp;u.resource=u.maxResource;
+            if(healed>0)createCombatText(scene,u.sprite.x,u.sprite.y,healed,'heal');
+          }
           b.active=false;b.sprite.setVisible(false);b.respawn=Date.now()+90000;
         }
       });
@@ -1621,7 +1659,9 @@ function updateUnit(u,dt,scene){
     if(Date.now()>=e.end)return false;
     if(e.type==='hot'&&Date.now()-e.lastTick>=1000){
       const amt=hasEffect(u,'mortalWound')?30:60;
+      const healed=Math.min(amt,u.maxHp-u.hp);
       u.hp=Math.min(u.maxHp,u.hp+amt);
+      if(healed>0)createCombatText(scene,u.sprite.x,u.sprite.y,healed,'heal');
       e.lastTick=Date.now();
     }
     return true;
@@ -1686,7 +1726,7 @@ function updateUnit(u,dt,scene){
     const d=Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,u.target.sprite.x,u.target.sprite.y);
     const atkSpd=hasEffect(u,'rapidfire')?u.atkSpeed*0.5:u.atkSpeed;
     if(d<=u.range&&Date.now()-u.lastAtk>=atkSpd){
-      dealDamage(u,u.target,u.atkDmg);
+      dealDamage(u,u.target,u.atkDmg,scene);
       u.lastAtk=Date.now();
       if(u.resourceType==='rage')u.resource=Math.min(u.maxResource,u.resource+12);
       
@@ -1873,9 +1913,11 @@ function runAI(u,dt,scene){
       u.target=lowestAlly;
       if(u.resource>=180){
         const amt=hasEffect(lowestAlly,'mortalWound')?300:600;
+        const healed=Math.min(amt,lowestAlly.maxHp-lowestAlly.hp);
         lowestAlly.hp=Math.min(lowestAlly.maxHp,lowestAlly.hp+amt);
         u.resource-=180;
         createHeal(scene,lowestAlly.sprite.x,lowestAlly.sprite.y);
+        if(healed>0)createCombatText(scene,lowestAlly.sprite.x,lowestAlly.sprite.y,healed,'heal');
       }
       const d=Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,lowestAlly.sprite.x,lowestAlly.sprite.y);
       if(d>280){
