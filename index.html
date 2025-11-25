@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-  <link rel="icon" href="/favicon.ico" />
+  <link rel="icon" href="./favicon.ico" />
   <meta name="description" content="2D Battle Arena" />
   <title>Open Battles</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
@@ -137,6 +137,29 @@
       .mobile-device #game-over h1{font-size:36px;margin-bottom:15px}
       .mobile-device #game-over button{padding:12px 40px;font-size:16px}
     }
+    /* Leaderboard */
+    #leaderboard{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:linear-gradient(180deg,rgba(0,0,0,0.95),rgba(0,0,0,0.85));border:3px solid #5a4a3a;border-radius:8px;padding:20px;display:none;z-index:90;min-width:clamp(320px,70vw,700px);max-width:90vw;box-shadow:0 8px 24px rgba(0,0,0,0.8)}
+    #leaderboard.visible{display:block}
+    #leaderboard h2{color:#ffd700;text-align:center;margin-bottom:15px;font-size:clamp(18px,3.5vw,24px);text-shadow:0 0 10px rgba(255,215,0,0.5)}
+    #leaderboard-hint{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);color:#888;font-size:10px}
+    .leaderboard-table{width:100%;border-collapse:collapse}
+    .leaderboard-table th,.leaderboard-table td{padding:8px 6px;text-align:center;font-size:clamp(10px,2vw,13px)}
+    .leaderboard-table th{color:#999;border-bottom:2px solid #444;font-weight:normal;text-transform:uppercase;font-size:clamp(9px,1.8vw,11px)}
+    .leaderboard-table td{border-bottom:1px solid #333}
+    .leaderboard-table tr.blueteam td{color:#6af}
+    .leaderboard-table tr.redteam td{color:#f66}
+    .leaderboard-table tr.player-row td{color:#ffd700;font-weight:bold}
+    .leaderboard-table .name-col{text-align:left;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .leaderboard-table .icon-col{font-size:clamp(14px,2.5vw,18px)}
+    #leaderboard-btn{position:absolute;top:10px;right:clamp(250px,22vw,290px);width:40px;height:40px;background:linear-gradient(135deg,#3a3a4a,#1a1a2a);border:2px solid #5a4a3a;border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;box-shadow:0 3px 6px rgba(0,0,0,0.4);cursor:pointer}
+    #leaderboard-btn:hover,#leaderboard-btn:active{border-color:#ffd700;transform:scale(1.05)}
+    .mobile-device #leaderboard{padding:12px;min-width:280px}
+    .mobile-device #leaderboard h2{font-size:16px;margin-bottom:10px}
+    .mobile-device .leaderboard-table th,.mobile-device .leaderboard-table td{padding:5px 3px;font-size:10px}
+    @media screen and (max-height:500px) and (orientation:landscape){
+      .mobile-device #leaderboard{padding:10px;max-height:90vh;overflow-y:auto}
+      .mobile-device #leaderboard h2{font-size:14px;margin-bottom:6px}
+    }
   </style>
 </head>
 <body>
@@ -191,6 +214,25 @@
       </div>
       <div id="respawn-timer"></div>
       <div id="gate-timer"></div>
+      <button id="leaderboard-btn" title="Leaderboard (`)">📊</button>
+      <div id="leaderboard">
+        <h2>LEADERBOARD</h2>
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th class="icon-col"></th>
+              <th class="name-col">Name</th>
+              <th>K</th>
+              <th>D</th>
+              <th>Dmg</th>
+              <th>Heal</th>
+              <th>Cap</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+        <div id="leaderboard-hint">Press ` to toggle</div>
+      </div>
       <div id="joystick-zone">
         <div id="joystick-base">
           <div id="joystick-thumb"></div>
@@ -233,6 +275,7 @@ let mouseMoving=false,mouseTarget={x:0,y:0};
 let gateActive=true,gateEndTime=0;
 let targetIndicator=null;
 let gameScene=null;
+let leaderboardVisible=false;
 
 const ABILITY_TOOLTIPS={
   Charge:{desc:'Charge to an enemy, stunning for 2s and generating 30 rage. Deals 200% damage on arrival.'},
@@ -637,7 +680,8 @@ function createUnit(scene,x,y,cls,team,isPlayer){
     stealthed:false,shielded:0,
     aiState:'idle',aiGoal:null,lastPathCalc:0,
     invulnerable:false,
-    jumping:false,jumpElements
+    jumping:false,jumpElements,
+    stats:{kills:0,deaths:0,damage:0,healing:0,flagCaptures:0}
   };
 }
 
@@ -1245,7 +1289,10 @@ const ABILITIES={
     const healed=Math.min(amt,t.maxHp-t.hp);
     t.hp=Math.min(t.maxHp,t.hp+amt);
     createHeal(scene,t.sprite.x,t.sprite.y);
-    if(healed>0)createCombatText(scene,t.sprite.x,t.sprite.y,healed,'heal');
+    if(healed>0){
+      createCombatText(scene,t.sprite.x,t.sprite.y,healed,'heal');
+      if(u.stats)u.stats.healing+=healed;
+    }
   },
   renew(u){
     let t=u.target&&u.target.team===u.team?u.target:u;
@@ -1527,22 +1574,30 @@ function dealDamage(attacker,target,dmg,scene){
     target.icon.setText({warrior:'⚔',mage:'❄',priest:'✚',rogue:'🗡',hunter:'🏹'}[target.class]);
   }
 
-  const totalDmg=dmg;
+  const totalDmg=Math.round(dmg);
   if(target.shielded>0){
     if(target.shielded>=dmg){target.shielded-=dmg;dmg=0;}
     else{dmg-=target.shielded;target.shielded=0;}
   }
 
   if(dmg>0)target.hp-=dmg;
+
+  // Track damage dealt
+  if(totalDmg>0&&attacker.stats)attacker.stats.damage+=totalDmg;
+
   if(scene&&totalDmg>0)createCombatText(scene,target.sprite.x,target.sprite.y,totalDmg,'damage');
-  if(target.hp<=0)killUnit(target);
+  if(target.hp<=0)killUnit(target,attacker);
 }
 
-function killUnit(u){
+function killUnit(u,killer){
   u.hp=0;
   u.alive=false;
   u.sprite.setVisible(false);
-  
+
+  // Track kills and deaths
+  if(u.stats)u.stats.deaths++;
+  if(killer&&killer.stats)killer.stats.kills++;
+
   if(u.carryingFlag){
     const f=flags[u.carryingFlag];
     f.carried=null;
@@ -1550,7 +1605,7 @@ function killUnit(u){
     f.x=u.sprite.x;f.y=u.sprite.y;
     u.carryingFlag=null;
   }
-  
+
   u.respawnTime=Date.now()+10000;
   if(u.isPlayer)document.getElementById('respawn-timer').style.display='block';
 }
@@ -1895,6 +1950,7 @@ function checkFlags(u){
   const distToAllyFlag=Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,allyFlag.homeX,allyFlag.homeY);
   if(u.carryingFlag&&afHome&&distToAllyFlag<120){
     if(u.team==='blueteam')allyScore++;else redteamScore++;
+    if(u.stats)u.stats.flagCaptures++;
     document.getElementById('blueteam-score').textContent=allyScore;
     document.getElementById('redteam-score').textContent=redteamScore;
     
@@ -1967,7 +2023,10 @@ function runAI(u,dt,scene){
         lowestAlly.hp=Math.min(lowestAlly.maxHp,lowestAlly.hp+amt);
         u.resource-=180;
         createHeal(scene,lowestAlly.sprite.x,lowestAlly.sprite.y);
-        if(healed>0)createCombatText(scene,lowestAlly.sprite.x,lowestAlly.sprite.y,healed,'heal');
+        if(healed>0){
+          createCombatText(scene,lowestAlly.sprite.x,lowestAlly.sprite.y,healed,'heal');
+          if(u.stats)u.stats.healing+=healed;
+        }
       }
       const d=Phaser.Math.Distance.Between(u.sprite.x,u.sprite.y,lowestAlly.sprite.x,lowestAlly.sprite.y);
       if(d>280){
@@ -2198,6 +2257,76 @@ function updateMinimap(){
   ctx.lineWidth=2;
   ctx.strokeRect(cam.scrollX*sx,cam.scrollY*sy,cam.width*sx,cam.height*sy);
 }
+
+// Leaderboard functions
+function toggleLeaderboard(){
+  leaderboardVisible=!leaderboardVisible;
+  const lb=document.getElementById('leaderboard');
+  if(leaderboardVisible){
+    updateLeaderboard();
+    lb.classList.add('visible');
+  }else{
+    lb.classList.remove('visible');
+  }
+}
+
+function updateLeaderboard(){
+  if(!player)return;
+  const icons={warrior:'⚔️',mage:'❄️',priest:'✨',rogue:'🗡️',hunter:'🏹'};
+  const allUnits=[player,...allies,...enemies];
+
+  // Sort by kills, then damage
+  allUnits.sort((a,b)=>{
+    if(b.stats.kills!==a.stats.kills)return b.stats.kills-a.stats.kills;
+    return b.stats.damage-a.stats.damage;
+  });
+
+  const tbody=document.getElementById('leaderboard-body');
+  tbody.innerHTML='';
+
+  allUnits.forEach(u=>{
+    const tr=document.createElement('tr');
+    tr.className=u.team;
+    if(u.isPlayer)tr.classList.add('player-row');
+
+    const name=u.isPlayer?'You':(u.team==='blueteam'?'Ally ':'Enemy ')+u.class.charAt(0).toUpperCase()+u.class.slice(1);
+
+    tr.innerHTML=`
+      <td class="icon-col">${icons[u.class]}</td>
+      <td class="name-col">${name}</td>
+      <td>${u.stats.kills}</td>
+      <td>${u.stats.deaths}</td>
+      <td>${formatNumber(u.stats.damage)}</td>
+      <td>${formatNumber(u.stats.healing)}</td>
+      <td>${u.stats.flagCaptures}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function formatNumber(n){
+  if(n>=1000000)return(n/1000000).toFixed(1)+'M';
+  if(n>=1000)return(n/1000).toFixed(1)+'K';
+  return n.toString();
+}
+
+// Leaderboard keyboard toggle (backtick)
+document.addEventListener('keydown',e=>{
+  if(e.key==='`'){
+    toggleLeaderboard();
+  }
+});
+
+// Leaderboard button click
+document.addEventListener('DOMContentLoaded',()=>{
+  const btn=document.getElementById('leaderboard-btn');
+  if(btn)btn.addEventListener('click',toggleLeaderboard);
+});
+
+// Update leaderboard periodically when visible
+setInterval(()=>{
+  if(leaderboardVisible)updateLeaderboard();
+},500);
 </script>
 </body>
 </html>
